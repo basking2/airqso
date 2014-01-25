@@ -1,0 +1,30 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.6.+'
+    }
+}
+apply plugin: 'android'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+android {
+    compileSdkVersion 19
+    buildToolsVersion "19.0.0"
+
+    defaultConfig {
+        minSdkVersion 7
+        targetSdkVersion 10
+    }
+}
+
+dependencies {
+    compile 'org.sdsai:sdsai-dsp:1.0@jar'
+	compile 'com.android.support:appcompat-v7:+'
+	compile 'com.android.support:support-v4:18.0.0'
+}

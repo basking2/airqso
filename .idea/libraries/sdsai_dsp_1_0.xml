@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="sdsai-dsp-1.0">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/sdsai/sdsai-dsp/1.0/sdsai-dsp-1.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
