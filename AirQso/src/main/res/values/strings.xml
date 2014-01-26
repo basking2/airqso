@@ -4,6 +4,6 @@
     <string name="app_name">AirQso</string>
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
-    <string name="tx_string">Tx</string>
+    <string name="tx_string">Tx</string><string name="rx_string">Rx</string><string name="rxon">Rx On</string><string name="rxoff">Rx Off</string><string name="txon">Tx On</string><string name="txoff">Tx Off</string>
 
 </resources>

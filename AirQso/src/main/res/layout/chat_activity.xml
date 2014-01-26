@@ -8,15 +8,6 @@
     <!-- The primary full-screen view. This can be replaced with whatever view
          is needed to present your content, e.g. VideoView, SurfaceView,
          TextureView, etc. -->
-    <TextView android:id="@+id/fullscreen_content"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:keepScreenOn="true"
-        android:textColor="#33b5e5"
-        android:textStyle="bold"
-        android:textSize="50sp"
-        android:gravity="center"
-        android:text="@string/dummy_content" />
 
     <!-- This FrameLayout insets its children based on system windows using
          android:fitsSystemWindows. -->
@@ -28,20 +19,38 @@
         android:layout_gravity="bottom|left|right|top"
         android:id="@+id/chat_layout">
 
-        <TextView
+        <ScrollView
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/chat_rx"
+            android:id="@+id/scroll_tx"
             android:layout_weight="1"
-            android:layout_gravity="center_horizontal|top" />
+            android:layout_gravity="center_horizontal|top"
+            android:fillViewport="true">
 
-        <EditText
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/chat_rx"
+                android:layout_gravity="center_horizontal|top"
+                android:gravity="fill" />
+        </ScrollView>
+
+        <ScrollView
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/chat_tx"
-            android:layout_gravity="center_horizontal|bottom"
+            android:id="@+id/scroll_rx"
+            android:layout_gravity="bottom|right"
             android:layout_weight="1"
-            android:inputType="textMultiLine" />
+            android:fillViewport="true">
+
+            <EditText
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/chat_tx"
+                android:layout_gravity="center_horizontal|bottom"
+                android:inputType="textMultiLine"
+                android:gravity="fill" />
+        </ScrollView>
 
         <LinearLayout
             android:orientation="horizontal"
@@ -51,11 +60,24 @@
             android:layout_weight="0"
             android:id="@+id/chat_controls">
 
-            <Button
+            <ToggleButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/tx_string"
-                android:id="@+id/tx_button" />
+                android:id="@+id/tx_button"
+                android:textOff="@string/txoff"
+                android:textOn="@string/txon"
+                android:onClick="onTxClicked" />
+
+            <ToggleButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/rx_string"
+                android:id="@+id/rx_button"
+                android:textOff="@string/rxoff"
+                android:textOn="@string/rxon"
+                android:onClick="onRxClicked" />
+
         </LinearLayout>
     </LinearLayout>
 

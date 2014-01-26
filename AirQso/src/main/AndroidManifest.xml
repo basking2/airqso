@@ -8,11 +8,14 @@
         android:minSdkVersion="7"
         android:targetSdkVersion="10" />
 
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/AppTheme">
         <activity
             android:name="org.sdsai.airqso.ChatActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"

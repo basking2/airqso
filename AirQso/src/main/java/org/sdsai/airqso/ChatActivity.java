@@ -1,5 +1,6 @@
 package org.sdsai.airqso;
 
+import org.sdsai.airqso.util.EditTextInputStream;
 import org.sdsai.airqso.util.SystemUiHider;
 
 import android.annotation.TargetApi;
@@ -9,10 +10,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.ToggleButton;
 
 import java.io.IOError;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -49,6 +53,11 @@ public class ChatActivity extends Activity {
      * The instance of the {@link SystemUiHider} for this activity.
      */
     private SystemUiHider mSystemUiHider;
+
+    private Bpsk bpsk;
+
+    private Bpsk.ReceiveThread receiveThread;
+    private Bpsk.TransmitThread transmitThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,9 +125,12 @@ public class ChatActivity extends Activity {
         // Upon interacting with UI controls, delay any scheduled hide()
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
-        findViewById(R.id.tx_button).setOnTouchListener(mDelayHideTouchListener);
+        final ToggleButton txButton = (ToggleButton) findViewById(R.id.tx_button);
+        final ToggleButton rxButton = (ToggleButton) findViewById(R.id.rx_button);
 
-        Bpsk bpsk = new Bpsk(new OutputStream(){
+        final EditText txText = (EditText) findViewById(R.id.chat_tx);
+
+        bpsk = new Bpsk(new OutputStream(){
             @Override
             public void write(final int b) throws IOException {
                 ChatActivity.this.runOnUiThread(new Runnable() {
@@ -149,7 +161,37 @@ public class ChatActivity extends Activity {
                     }
                 });
             }
-        });
+        },
+        new EditTextInputStream(txText));
+
+    }
+
+    public void onTxClicked(final View view) {
+        // Is the toggle on?
+        boolean on = ((ToggleButton) view).isChecked();
+
+        if (transmitThread != null) {
+            transmitThread.stopTransmit();
+            transmitThread = null;
+        }
+
+        if (on) {
+            transmitThread = bpsk.startTransmit(700);
+        }
+    }
+
+    public void onRxClicked(View view) {
+        // Is the toggle on?
+        boolean on = ((ToggleButton) view).isChecked();
+
+        if (receiveThread != null) {
+            receiveThread.stopReceive();
+            receiveThread = null;
+        }
+
+        if (on) {
+            receiveThread = bpsk.startReceive(700);
+        }
     }
 
     @Override
@@ -162,7 +204,18 @@ public class ChatActivity extends Activity {
         delayedHide(100);
     }
 
+    @Override
+    protected void onStop() {
+        if (transmitThread != null) {
+            transmitThread.stopTransmit();
+            transmitThread = null;
+        }
 
+        if (receiveThread != null) {
+            receiveThread.stopReceive();
+            receiveThread = null;
+        }
+    }
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
      * system UI. This is to prevent the jarring behavior of controls going away

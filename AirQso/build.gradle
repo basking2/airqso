@@ -24,7 +24,7 @@ android {
 }
 
 dependencies {
-    compile 'org.sdsai:sdsai-dsp:1.0@jar'
+    compile 'org.sdsai:sdsai-dsp:1.0.1@jar'
 	compile 'com.android.support:appcompat-v7:+'
 	compile 'com.android.support:support-v4:18.0.0'
 }
