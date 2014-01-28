@@ -33,7 +33,8 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/chat_rx"
                 android:layout_gravity="center_horizontal|top"
-                android:gravity="fill" />
+                android:gravity="fill"
+                android:textColor="#000000" />
         </ScrollView>
 
         <ScrollView
@@ -51,7 +52,8 @@
                 android:layout_gravity="center_horizontal|bottom"
                 android:inputType="textMultiLine"
                 android:gravity="fill"
-                android:background="#d0d0d0" />
+                android:background="#d0d0d0"
+                android:textColor="#000000" />
         </ScrollView>
 
         <LinearLayout
@@ -69,7 +71,8 @@
                 android:id="@+id/tx_button"
                 android:textOff="@string/txoff"
                 android:textOn="@string/txon"
-                android:onClick="onTxClicked" />
+                android:onClick="onTxClicked"
+                android:textColor="#000000" />
 
             <ToggleButton
                 android:layout_width="wrap_content"
@@ -78,7 +81,8 @@
                 android:id="@+id/rx_button"
                 android:textOff="@string/rxoff"
                 android:textOn="@string/rxon"
-                android:onClick="onRxClicked" />
+                android:onClick="onRxClicked"
+                android:textColor="#000000" />
 
             <EditText
                 android:layout_width="wrap_content"
@@ -87,13 +91,15 @@
                 android:ems="5"
                 android:id="@+id/hz_text"
                 android:enabled="true"
-                android:text="@string/hzdefault" />
+                android:text="@string/hzdefault"
+                android:textColor="#000000" />
 
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/clear_button"
-                android:id="@+id/clr_button" />
+                android:id="@+id/clr_button"
+                android:textColor="#000000" />
 
         </LinearLayout>
     </LinearLayout>
