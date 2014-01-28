@@ -17,7 +17,8 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:layout_gravity="bottom|left|right|top"
-        android:id="@+id/chat_layout">
+        android:id="@+id/chat_layout"
+        android:background="#ffffff">
 
         <ScrollView
             android:layout_width="fill_parent"
@@ -49,7 +50,8 @@
                 android:id="@+id/chat_tx"
                 android:layout_gravity="center_horizontal|bottom"
                 android:inputType="textMultiLine"
-                android:gravity="fill" />
+                android:gravity="fill"
+                android:background="#d0d0d0" />
         </ScrollView>
 
         <LinearLayout
@@ -77,6 +79,21 @@
                 android:textOff="@string/rxoff"
                 android:textOn="@string/rxon"
                 android:onClick="onRxClicked" />
+
+            <EditText
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:ems="5"
+                android:id="@+id/hz_text"
+                android:enabled="true"
+                android:text="@string/hzdefault" />
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/clear_button"
+                android:id="@+id/clr_button" />
 
         </LinearLayout>
     </LinearLayout>

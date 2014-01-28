@@ -11,6 +11,7 @@ import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.*;
+import android.os.Process;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -112,7 +113,15 @@ public class Bpsk {
         return r;
     }
 
-    public static AudioRecord findAudioRecord() {
+    /**
+     * Attempt to find a combination of record parameters that works on a particular device.
+     *
+     * @param symbolRate The PSK symbol rate, used to allocate a suitable buffer.
+     *
+     * @return A valid {@link AudioRecord}. If none is found, a {@link RuntimeException} is thrown.
+     * @throws RuntimeException on no {@link AudioRecord} option found.
+     */
+    public static AudioRecord findAudioRecord(final double symbolRate) {
         final String TAG = "findAudioRecord";
         for (int rate : SAMPLE_RATES) {
             for (short audioFormat : ENCODINGS) {
@@ -122,8 +131,18 @@ public class Bpsk {
                         int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
 
                         if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
+
+                            /* This is the only real custom code. Wait for about 10 symbols to
+                             * come by at the typical PSK 32 speed. */
+                            final int otherBufferSize = (int)(rate / symbolRate * 2 * 4);
+
                             // check if we can instantiate and have a success
-                            AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, rate, channelConfig, audioFormat, bufferSize);
+                            AudioRecord recorder = new AudioRecord(
+                                    MediaRecorder.AudioSource.DEFAULT,
+                                    rate,
+                                    channelConfig,
+                                    audioFormat,
+                                    Math.max(bufferSize, otherBufferSize));
 
                             if (recorder.getState() == AudioRecord.STATE_INITIALIZED) {
                                 Log.d(TAG, "Chose rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
@@ -139,7 +158,15 @@ public class Bpsk {
         throw new RuntimeException("Failed to find recording resource.");
     }
 
-    public static AudioTrack findAudioPlay() {
+    /**
+     * Attempt to find a combination of record parameters that works on a particular device.
+     *
+     * @param symbolRate The PSK symbol rate, used to allocate a suitable buffer.
+     *
+     * @return A valid {@link AudioTrack}. If none is found, a {@link RuntimeException} is thrown.
+     * @throws RuntimeException on no {@link AudioTrack} option found.
+     */
+    public static AudioTrack findAudioPlay(final double symbolRate) {
         final String TAG = "findAudioPlay";
         for (int rate : SAMPLE_RATES) {
             for (short audioFormat : ENCODINGS) {
@@ -149,6 +176,11 @@ public class Bpsk {
                         int bufferSize = AudioTrack.getMinBufferSize(rate, channelConfig, audioFormat);
 
                         if (bufferSize != AudioTrack.ERROR_BAD_VALUE) {
+
+                            /* This is the only real custom code. Wait for about 10 symbols to
+                             * come by at the typical PSK 32 speed. */
+                            final int otherBufferSize = (int)(rate / symbolRate * 2 * 10);
+
                             // check if we can instantiate and have a success
                             AudioTrack play = new AudioTrack(
                                     AudioManager.STREAM_MUSIC, rate, channelConfig, audioFormat, bufferSize, AudioTrack.MODE_STREAM);
@@ -169,14 +201,15 @@ public class Bpsk {
     }
 
     public static class TransmitThread extends Thread {
-        private boolean running;
         private BpskGenerator bpskGenerator;
-        private InputStream in;
+        private InputStream   in;
         private AudioTrack audioTrack;
+        private boolean running;
 
         public TransmitThread(final int hz, final double symbolRate, final InputStream in)
         {
-            this.audioTrack = findAudioPlay();
+            this.running = false;
+            this.audioTrack = findAudioPlay(symbolRate);
             this.bpskGenerator = new BpskGenerator(hz, audioTrack.getSampleRate(), symbolRate);
             this.in = in;
         }
@@ -205,6 +238,7 @@ public class Bpsk {
                     }
                 }, bpskGenerator);
 
+                running = true;
                 audioTrack.play();
                 while (running) {
                     final byte[] buffer = new byte[100];
@@ -215,13 +249,8 @@ public class Bpsk {
                     else {
                         final int len = in.read(buffer);
 
-                        if (len < 0)  {
-                            running = false;
-                        }
-                        else {
-                            bpskOutputStream.write(buffer, 0, len);
-                        }
-                    }
+                        bpskOutputStream.write(buffer, 0, len);
+                   }
                 }
 
                 bpskOutputStream.postamble(10);
@@ -230,65 +259,82 @@ public class Bpsk {
 
             }
             finally {
-                running = false;
-                audioTrack.stop();
+                cleanup();
             }
         }
 
-        @Override
-        public void start() {
-            running = true;
-            super.start();
-        }
+        /**
+         * Release all audio resources to the OS quickly.
+         */
+        public synchronized void cleanup() {
+            if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                audioTrack.stop();
+            }
 
+            if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
+                audioTrack.release();
+            }
+        }
         public void stopTransmit() {
+
+            cleanup();
+
             running = false;
+
             try {
                 this.join();
             }
             catch (final InterruptedException e) {
                 Log.e("Bpsk", "Failed to join transmit thread.");
-                this.setDaemon(true);
             }
         }
+
+        @Override
+        public void finalize() throws Throwable { cleanup(); }
     }
 
     public static class ReceiveThread extends Thread {
-        private boolean running;
+        boolean running;
         final private OutputStream out;
-        final BpskDetector bpskDetector;
         final AudioRecord audioRecord;
+        final BpskDetector bpskDetector;
 
         public ReceiveThread(final int hz, final double symbolRate, final OutputStream out) {
             this.running = false;
             this.out = out;
-            this.audioRecord = findAudioRecord();
+            this.audioRecord = findAudioRecord(symbolRate);
             this.bpskDetector = new BpskDetector(hz, audioRecord.getSampleRate(), symbolRate);
         }
 
-        @Override
-        public void start() {
-            this.running = true;
-            super.start();
+        /**
+         * Release all the audio resources back to the OS quickly.
+         */
+        private synchronized void cleanup() {
+            if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                audioRecord.stop();
+            }
+
+            if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+                audioRecord.release();
+            }
         }
 
         public void stopReceive() {
-            this.running = false;
+            cleanup();
+
+            running = false;
+
             try {
                 this.join();
             }
             catch (final InterruptedException e) {
                 Log.e("Bpsk", "Failed to join receive thread.");
-                this.setDaemon(true);
             }
         }
 
         @Override
         public void run() {
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
-
             final BpskInputStream bpskInputStream = new BpskInputStream(
-
                     /**
                      * And input stream that reads from an Android Audio source and returns
                      * the 16 bit, big endian, signed integers as java-compatible
@@ -309,12 +355,12 @@ public class Bpsk {
                             /* If rc == -1, just exit. If rc == 0, we received nothing. */
                             if (rc > 0) {
                                 for (int i = 0; i < rc; ++i) {
-                                    b[i*2]   = (byte)((s[i]>>8)&0xff);
-                                    b[i*2+1] = (byte)((s[i])&0xff);
+                                    b[off+i*2]   = (byte)((s[i]>>8)&0xff);
+                                    b[off+i*2+1] = (byte)((s[i])&0xff);
                                 }
                             }
 
-                            return rc;
+                            return rc*2;
                         }
 
                         @Override
@@ -324,11 +370,11 @@ public class Bpsk {
 
                         @Override
                         public int read() throws IOException {
-                            short[] b = new short[1];
+                            short[] s = new short[1];
                             int rc;
 
                             do {
-                                rc = audioRecord.read(b, 0, 1);
+                                rc = audioRecord.read(s, 0, 1);
                                 switch(rc) {
                                     case AudioRecord.ERROR_INVALID_OPERATION:
                                         throw new IOException("Invalid operation.");
@@ -341,26 +387,27 @@ public class Bpsk {
                                 return rc;
                             }
 
-                            return (int)((((short)b[0]<<8)&0xff00) | ((short)b[1]&0xff));
+                            return (int)((((short)s[0]<<8)&0xff00) | ((short)s[0]&0xff));
                         }
                     },
                     bpskDetector
             );
 
-            audioRecord.startRecording();
             try {
-                while(running) {
-                    final byte[] b = new byte[1024];
+                out.write("[Receive started]\n".getBytes());
+                final byte[] b = new byte[1];
+                audioRecord.startRecording();
+                running = true;
+                while (running) {
 
                     /* Receive from the user. */
                     final int len = bpskInputStream.read(b);
 
                     if (len > 0) {
-                        /* Write. */
                         out.write(b, 0, len);
                     }
                     else if (len == -1) {
-                        running = false;
+                        break;
                     }
                 }
             }
@@ -369,9 +416,12 @@ public class Bpsk {
                 Log.i("Bpsk", e.getMessage());
             }
             finally {
-                running = false;
-                audioRecord.stop();
+                cleanup();
             }
         }
+
+        @Override
+        public void finalize() throws Throwable { cleanup(); }
+
     }
 }
