@@ -20,6 +20,7 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -69,32 +70,34 @@ public class ChatActivity extends Activity {
 
         bpsk = new Bpsk(new OutputStream(){
             @Override
-            public void write(final int b) throws IOException {
+            public void write(final int i) throws IOException {
                 ChatActivity.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run(){
                         final TextView chatRx = (TextView) findViewById(R.id.chat_rx);
-                        chatRx.append(String.valueOf(b));
+                        chatRx.append(new String(new byte[] { (byte) i }));
                     }
                 });
             }
             @Override
             public void write(final byte[] bytes) throws IOError {
+                final String s = new String(bytes);
                 ChatActivity.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run(){
                         final TextView chatRx = (TextView) findViewById(R.id.chat_rx);
-                        chatRx.append(new String(bytes));
+                        chatRx.append(s);
                     }
                 });
             }
             @Override
             public void write(final byte[] bytes, final int off, final int len) throws IOException {
+                final String s = new String(bytes, off, len);
                 ChatActivity.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run(){
                         final TextView chatRx = (TextView) findViewById(R.id.chat_rx);
-                        chatRx.append(new String(bytes, off, len));
+                        chatRx.append(s);
                     }
                 });
             }
