@@ -45,6 +45,15 @@ public class Bpsk {
     private static short[] OUT_CHANNELS = new short[]{AudioFormat.CHANNEL_OUT_MONO};
 
     /**
+     * Different audio sources to attempt to record from.
+     */
+    private static short[] SOURCES = new short[] {
+        MediaRecorder.AudioSource.CAMCORDER,
+        MediaRecorder.AudioSource.MIC,
+        MediaRecorder.AudioSource.DEFAULT,
+    };
+
+    /**
      * How data is delivered to the user.
      */
     private OutputStream out;
@@ -126,31 +135,33 @@ public class Bpsk {
         for (int rate : SAMPLE_RATES) {
             for (short audioFormat : ENCODINGS) {
                 for (short channelConfig : IN_CHANNELS) {
-                    try {
-                        Log.d(TAG, "Attempting rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
-                        int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
+                    for (short audioSource : SOURCES) {
+                        try {
+                            Log.d(TAG, "Attempting rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
+                            final int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
 
-                        if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
+                            if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
 
-                            /* This is the only real custom code. Wait for about 10 symbols to
-                             * come by at the typical PSK 32 speed. */
-                            final int otherBufferSize = (int)(rate / symbolRate * 2 * 4);
+                                /* This is the only real custom code. Wait for about 10 symbols to
+                                 * come by at the typical PSK 32 speed. */
+                                final int otherBufferSize = (int)(rate / symbolRate * 10);
 
-                            // check if we can instantiate and have a success
-                            AudioRecord recorder = new AudioRecord(
-                                    MediaRecorder.AudioSource.DEFAULT,
-                                    rate,
-                                    channelConfig,
-                                    audioFormat,
-                                    Math.max(bufferSize, otherBufferSize));
+                                // check if we can instantiate and have a success
+                                final AudioRecord recorder = new AudioRecord(
+                                        audioSource,
+                                        rate,
+                                        channelConfig,
+                                        audioFormat,
+                                        Math.max(bufferSize, otherBufferSize));
 
-                            if (recorder.getState() == AudioRecord.STATE_INITIALIZED) {
-                                Log.d(TAG, "Chose rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
-                                return recorder;
+                                if (recorder.getState() == AudioRecord.STATE_INITIALIZED) {
+                                    Log.d(TAG, "Chose rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
+                                    return recorder;
+                                }
                             }
+                        } catch (Exception e) {
+                            Log.e(TAG, rate + "Exception, keep trying.", e);
                         }
-                    } catch (Exception e) {
-                        Log.e(TAG, rate + "Exception, keep trying.", e);
                     }
                 }
             }
@@ -173,7 +184,7 @@ public class Bpsk {
                 for (short channelConfig : OUT_CHANNELS) {
                     try {
                         Log.d(TAG, "Attempting rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
-                        int bufferSize = AudioTrack.getMinBufferSize(rate, channelConfig, audioFormat);
+                        final int bufferSize = AudioTrack.getMinBufferSize(rate, channelConfig, audioFormat);
 
                         if (bufferSize != AudioTrack.ERROR_BAD_VALUE) {
 
@@ -182,8 +193,13 @@ public class Bpsk {
                             final int otherBufferSize = (int)(rate / symbolRate * 2 * 10);
 
                             // check if we can instantiate and have a success
-                            AudioTrack play = new AudioTrack(
-                                    AudioManager.STREAM_MUSIC, rate, channelConfig, audioFormat, bufferSize, AudioTrack.MODE_STREAM);
+                            final AudioTrack play = new AudioTrack(
+                                    AudioManager.STREAM_MUSIC,
+                                    rate,
+                                    channelConfig,
+                                    audioFormat,
+                                    bufferSize,
+                                    AudioTrack.MODE_STREAM);
 
                             if (play.getState() == AudioTrack.STATE_INITIALIZED) {
                                 Log.d(TAG, "Chose rate " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig);
@@ -294,10 +310,10 @@ public class Bpsk {
     }
 
     public static class ReceiveThread extends Thread {
-        boolean running;
+        private boolean running;
         final private OutputStream out;
-        final AudioRecord audioRecord;
-        final BpskDetector bpskDetector;
+        final private AudioRecord audioRecord;
+        final private BpskDetector bpskDetector;
 
         public ReceiveThread(final int hz, final double symbolRate, final OutputStream out) {
             this.running = false;
