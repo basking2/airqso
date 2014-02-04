@@ -15,6 +15,8 @@ import android.os.Process;
 import android.provider.MediaStore;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -48,9 +50,9 @@ public class Bpsk {
      * Different audio sources to attempt to record from.
      */
     private static short[] SOURCES = new short[] {
-        MediaRecorder.AudioSource.CAMCORDER,
-        MediaRecorder.AudioSource.MIC,
         MediaRecorder.AudioSource.DEFAULT,
+        MediaRecorder.AudioSource.MIC,
+        MediaRecorder.AudioSource.CAMCORDER,
     };
 
     /**
@@ -236,17 +238,18 @@ public class Bpsk {
                 final BpskOutputStream bpskOutputStream = new BpskOutputStream(new OutputStream(){
                     @Override
                     public void write(int i) throws IOException {
-                        short[] b = new short[1];
-                        b[0] = (short) i;
-                        audioTrack.write(b, 0, 1);
+                        throw new UnsupportedOperationException(
+                            "Cannot write single byte to audio output stream.");
                     }
                     @Override
                     public void write(byte[] b, int off, int len) throws IOException {
-                        short[] s = new short[len/2];
-                        for (int i = 0; i < s.length; ++i) {
-                            s[i] = (short)(((((short)b[i*2])<<8)&0xff00)|((short)(b[i*2+1])&0xff));
+                        /* For raw-writing, swap the byte order. */
+                        for (int i = off; i < off+len; i+=2){
+                            final byte tmp = b[i];
+                            b[i] = b[i+1];
+                            b[i+1] = tmp;
                         }
-                        audioTrack.write(s, 0, s.length);
+                        audioTrack.write(b, off, len);
                     }
                     @Override
                     public void write(byte[] b) throws IOException {
@@ -260,7 +263,7 @@ public class Bpsk {
                     final byte[] buffer = new byte[100];
 
                     if (in.available() == 0) {
-                        bpskOutputStream.preamble(10);
+                        bpskOutputStream.preamble(20);
                     }
                     else {
                         final int len = in.read(buffer);
@@ -269,7 +272,7 @@ public class Bpsk {
                    }
                 }
 
-                bpskOutputStream.postamble(10);
+                bpskOutputStream.postamble(20);
             }
             catch (final IOException e) {
 
@@ -291,6 +294,7 @@ public class Bpsk {
                 audioTrack.release();
             }
         }
+
         public void stopTransmit() {
 
             cleanup();
@@ -304,9 +308,6 @@ public class Bpsk {
                 Log.e("Bpsk", "Failed to join transmit thread.");
             }
         }
-
-        @Override
-        public void finalize() throws Throwable { cleanup(); }
     }
 
     public static class ReceiveThread extends Thread {
@@ -320,6 +321,7 @@ public class Bpsk {
             this.out = out;
             this.audioRecord = findAudioRecord(symbolRate);
             this.bpskDetector = new BpskDetector(hz, audioRecord.getSampleRate(), symbolRate);
+
         }
 
         /**
@@ -351,16 +353,10 @@ public class Bpsk {
         @Override
         public void run() {
             final BpskInputStream bpskInputStream = new BpskInputStream(
-                    /**
-                     * And input stream that reads from an Android Audio source and returns
-                     * the 16 bit, big endian, signed integers as java-compatible
-                     * values.
-                     */
                     new InputStream() {
                         @Override
                         public int read(byte[] b, int off, int len) throws IOException {
-                            short[] s = new short[len/2];
-                            int rc = audioRecord.read(s, 0, s.length);
+                            final int rc = audioRecord.read(b, off, len);
                             switch(rc) {
                                 case AudioRecord.ERROR_INVALID_OPERATION:
                                     throw new IOException("Invalid operation.");
@@ -370,13 +366,19 @@ public class Bpsk {
 
                             /* If rc == -1, just exit. If rc == 0, we received nothing. */
                             if (rc > 0) {
-                                for (int i = 0; i < rc; ++i) {
-                                    b[off+i*2]   = (byte)((s[i]>>8)&0xff);
-                                    b[off+i*2+1] = (byte)((s[i])&0xff);
+                                for (int i = off; i < off+rc; i+=2) {
+                                    final byte tmp = b[i];
+                                    b[i] = b[i+1];
+                                    b[i+1] = tmp;
                                 }
                             }
 
-                            return rc*2;
+                            /* Debug code used to examine the raw waveform. */
+                            // FileOutputStream fos = new FileOutputStream("/data/data/org.sdsai.airqso/b", true);
+                            // fos.write(b, off, rc);
+                            // fos.close();
+
+                            return rc;
                         }
 
                         @Override
@@ -386,24 +388,8 @@ public class Bpsk {
 
                         @Override
                         public int read() throws IOException {
-                            short[] s = new short[1];
-                            int rc;
-
-                            do {
-                                rc = audioRecord.read(s, 0, 1);
-                                switch(rc) {
-                                    case AudioRecord.ERROR_INVALID_OPERATION:
-                                        throw new IOException("Invalid operation.");
-                                    case AudioRecord.ERROR_BAD_VALUE:
-                                        throw new IOException("Bad value.");
-                                }
-                            } while (rc == 0);
-
-                            if (rc < 0) {
-                                return rc;
-                            }
-
-                            return (int)((((short)s[0]<<8)&0xff00) | ((short)s[0]&0xff));
+                            throw new UnsupportedOperationException(
+                                "Cannot read single value from audio input stream.");
                         }
                     },
                     bpskDetector
@@ -435,9 +421,5 @@ public class Bpsk {
                 cleanup();
             }
         }
-
-        @Override
-        public void finalize() throws Throwable { cleanup(); }
-
     }
 }
